@@ -240,22 +240,6 @@ export interface SafetyAttribute {
   safetyUrl: string | null;
 }
 
-// Price Calendar Types
-export interface PriceCalendarResponse {
-  flights: {
-    noPriceLabel: string;
-    groups: {
-      id: string;
-      label: string;
-    }[];
-    days: {
-      day: string;
-      group: string;
-      price: number;
-    }[];
-    currency: string;
-  };
-}
 
 // Search Parameters
 export interface FlightSearchParams {
@@ -277,12 +261,6 @@ export interface AirportSearchParams {
   locale?: string;
 }
 
-export interface PriceCalendarParams {
-  originSkyId: string;
-  destinationSkyId: string;
-  fromDate: string;
-  currency?: string;
-}
 
 // Authentication Types
 export interface User {

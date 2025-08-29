@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import AirportPicker from '../../components/AirportPicker';
 import FlightResults from '../../components/FlightResults';
 import { useFlightSearch } from '../../hooks/useFlightSearch';
@@ -89,11 +90,22 @@ export default function SearchScreen() {
 
   // Handle flight selection
   const handleFlightSelect = (itinerary: Itinerary): void => {
-    Alert.alert(
-      'Flight Selected',
-      `Selected flight for ${itinerary.price.formatted}. Flight details screen will be implemented next.`,
-      [{ text: 'OK', style: 'default' }]
-    );
+    try {
+      // Navigate to flight details page with the selected itinerary
+      router.push({
+        pathname: '/flight-details',
+        params: {
+          itinerary: JSON.stringify(itinerary)
+        }
+      });
+    } catch (error) {
+      console.error('Error navigating to flight details:', error);
+      Alert.alert(
+        'Navigation Error',
+        'Unable to open flight details. Please try again.',
+        [{ text: 'OK', style: 'default' }]
+      );
+    }
   };
 
   // Start new search
@@ -266,11 +278,11 @@ export default function SearchScreen() {
               </View>
               
               <View style={styles.featureItem}>
-                <Text style={styles.featureIcon}>📅</Text>
+                <Text style={styles.featureIcon}>🔍</Text>
                 <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>Flexible Dates</Text>
+                  <Text style={styles.featureTitle}>Detailed Information</Text>
                   <Text style={styles.featureDescription}>
-                    View price calendar to find the cheapest travel dates
+                    View comprehensive flight details and booking options
                   </Text>
                 </View>
               </View>

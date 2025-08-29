@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Image,
 } from 'react-native';
-import { Itinerary, FlightDetailsResponse, Agent, Leg } from '../services/types';
+import { Itinerary, FlightDetailsResponse } from '../services/types';
 import { flightAPI } from '../services/flightAPI';
 
 interface FlightDetailsProps {
@@ -17,8 +18,105 @@ interface FlightDetailsProps {
   onBack?: () => void;
 }
 
+interface DetailedLeg {
+  id: string;
+  origin: {
+    id: string;
+    name: string;
+    displayCode: string;
+    city: string;
+  };
+  destination: {
+    id: string;
+    name: string;
+    displayCode: string;
+    city: string;
+  };
+  segments: DetailedSegment[];
+  duration: number;
+  stopCount: number;
+  departure: string;
+  arrival: string;
+  dayChange: number;
+}
+
+interface DetailedSegment {
+  id: string;
+  origin: {
+    id: string;
+    name: string;
+    displayCode: string;
+    city: string;
+  };
+  destination: {
+    id: string;
+    name: string;
+    displayCode: string;
+    city: string;
+  };
+  duration: number;
+  dayChange: number;
+  flightNumber: string;
+  departure: string;
+  arrival: string;
+  marketingCarrier: {
+    id: string;
+    name: string;
+    displayCode: string;
+    displayCodeType: string;
+    logo: string;
+    altId: string;
+  };
+  operatingCarrier: {
+    id: string;
+    name: string;
+    displayCode: string;
+    displayCodeType: string;
+    logo: string;
+    altId: string;
+  };
+}
+
+interface DetailedAgent {
+  id: string;
+  name: string;
+  isCarrier: boolean;
+  bookingProposition: string;
+  url: string;
+  price: number;
+  rating: {
+    value: number;
+    count: number;
+  };
+  updateStatus: string;
+  segments: DetailedSegment[];
+  isDirectDBookUrl: boolean;
+  quoteAge: number;
+}
+
+interface DetailedItinerary {
+  legs: DetailedLeg[];
+  pricingOptions: {
+    agents: DetailedAgent[];
+    totalPrice: number;
+  }[];
+  isTransferRequired: boolean;
+  destinationImage: string;
+  operatingCarrierSafetyAttributes: {
+    carrierID: string;
+    carrierName: string;
+    faceMasksCompulsory: boolean | null;
+    aircraftDeepCleanedDaily: boolean | null;
+    attendantsWearPPE: boolean | null;
+    cleaningPacksProvided: boolean | null;
+    foodServiceChanges: boolean | null;
+    safetyUrl: string | null;
+  }[];
+  flexibleTicketPolicies: any[];
+}
+
 const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
-  const [detailsData, setDetailsData] = useState<FlightDetailsResponse | null>(null);
+  const [detailsData, setDetailsData] = useState<{ itinerary: DetailedItinerary; pollingCompleted: boolean } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +136,7 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
       }));
 
       const details = await flightAPI.getFlightDetails(legs);
-      setDetailsData(details);
+      setDetailsData(details as any);
     } catch (err) {
       console.error('Error fetching flight details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load flight details');
@@ -70,7 +168,15 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
     });
   };
 
-  const handleBookingPress = async (agent: Agent) => {
+  const formatShortDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const handleBookingPress = async (agent: DetailedAgent) => {
     try {
       const supported = await Linking.canOpenURL(agent.url);
       if (supported) {
@@ -83,57 +189,84 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
     }
   };
 
-  const renderSegmentDetails = (leg: Leg) => (
-    <View style={styles.segmentContainer} key={leg.id}>
-      <View style={styles.segmentHeader}>
-        <Text style={styles.segmentTitle}>Flight Details</Text>
-        <Text style={styles.segmentDuration}>{formatDuration(leg.durationInMinutes)}</Text>
-      </View>
-      
-      <View style={styles.routeContainer}>
+  const renderSegmentDetails = (segment: DetailedSegment, isLast: boolean) => (
+    <View style={styles.segmentContainer} key={segment.id}>
+      <View style={styles.flightInfo}>
         <View style={styles.airportSection}>
-          <Text style={styles.airportCode}>{leg.origin.displayCode}</Text>
-          <Text style={styles.cityName}>{leg.origin.city}</Text>
-          <Text style={styles.timeText}>{formatTime(leg.departure)}</Text>
-          <Text style={styles.dateText}>{formatDate(leg.departure)}</Text>
+          <Text style={styles.airportCode}>{segment.origin.displayCode}</Text>
+          <Text style={styles.cityName}>{segment.origin.city}</Text>
+          <Text style={styles.timeText}>{formatTime(segment.departure)}</Text>
+          <Text style={styles.dateText}>{formatShortDate(segment.departure)}</Text>
         </View>
         
         <View style={styles.flightPath}>
+          <View style={styles.carrierInfo}>
+            <Image 
+              source={{ uri: segment.marketingCarrier.logo }}
+              style={styles.airlineLogo}
+              onError={() => {}}
+            />
+            <Text style={styles.flightNumber}>
+              {segment.marketingCarrier.displayCode} {segment.flightNumber}
+            </Text>
+          </View>
+          <Text style={styles.durationText}>{formatDuration(segment.duration)}</Text>
           <View style={styles.flightLine} />
-          <Text style={styles.stopsText}>
-            {leg.stopCount === 0 ? 'Direct' : `${leg.stopCount} stop${leg.stopCount > 1 ? 's' : ''}`}
-          </Text>
         </View>
         
         <View style={styles.airportSection}>
-          <Text style={styles.airportCode}>{leg.destination.displayCode}</Text>
-          <Text style={styles.cityName}>{leg.destination.city}</Text>
-          <Text style={styles.timeText}>{formatTime(leg.arrival)}</Text>
-          <Text style={styles.dateText}>{formatDate(leg.arrival)}</Text>
+          <Text style={styles.airportCode}>{segment.destination.displayCode}</Text>
+          <Text style={styles.cityName}>{segment.destination.city}</Text>
+          <Text style={styles.timeText}>{formatTime(segment.arrival)}</Text>
+          <Text style={styles.dateText}>{formatShortDate(segment.arrival)}</Text>
+          {segment.dayChange > 0 && (
+            <Text style={styles.dayChangeText}>+{segment.dayChange} day</Text>
+          )}
         </View>
       </View>
       
-      <View style={styles.carrierSection}>
-        <Text style={styles.carrierLabel}>Airlines:</Text>
-        <Text style={styles.carrierText}>
-          {leg.carriers.marketing.map(carrier => carrier.name).join(', ')}
-        </Text>
+      <View style={styles.carrierDetails}>
+        <Text style={styles.carrierName}>{segment.marketingCarrier.name}</Text>
+        {segment.operatingCarrier.id !== segment.marketingCarrier.id && (
+          <Text style={styles.operatedBy}>
+            Operated by {segment.operatingCarrier.name}
+          </Text>
+        )}
       </View>
       
-      {leg.segments && leg.segments.length > 0 && (
-        <View style={styles.segmentsList}>
-          <Text style={styles.segmentsTitle}>Flight Numbers:</Text>
-          {leg.segments.map((segment, index) => (
-            <Text key={index} style={styles.flightNumber}>
-              {segment.marketingCarrier.alternateId} {segment.flightNumber}
-            </Text>
-          ))}
+      {!isLast && (
+        <View style={styles.layover}>
+          <Text style={styles.layoverText}>Layover</Text>
         </View>
       )}
     </View>
   );
 
-  const renderPricingOption = (agent: Agent, index: number) => (
+  const renderLegDetails = (leg: DetailedLeg, legIndex: number) => (
+    <View style={styles.legContainer} key={leg.id}>
+      <View style={styles.legHeader}>
+        <Text style={styles.legTitle}>
+          {legIndex === 0 ? 'Outbound Flight' : 'Return Flight'}
+        </Text>
+        <Text style={styles.legDuration}>{formatDuration(leg.duration)}</Text>
+      </View>
+      
+      <View style={styles.routeSummary}>
+        <Text style={styles.routeText}>
+          {leg.origin.displayCode} → {leg.destination.displayCode}
+        </Text>
+        <Text style={styles.stopsText}>
+          {leg.stopCount === 0 ? 'Direct' : `${leg.stopCount} stop${leg.stopCount > 1 ? 's' : ''}`}
+        </Text>
+      </View>
+      
+      {leg.segments.map((segment, index) => 
+        renderSegmentDetails(segment, index === leg.segments.length - 1)
+      )}
+    </View>
+  );
+
+  const renderPricingOption = (agent: DetailedAgent, index: number) => (
     <TouchableOpacity
       key={agent.id}
       style={[styles.agentCard, index === 0 && styles.bestDealCard]}
@@ -141,7 +274,7 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
     >
       {index === 0 && (
         <View style={styles.bestDealBadge}>
-          <Text style={styles.bestDealText}>Best Deal</Text>
+          <Text style={styles.bestDealText}>Best Price</Text>
         </View>
       )}
       
@@ -151,17 +284,19 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
       </View>
       
       <View style={styles.agentInfo}>
-        <Text style={styles.bookingText}>{agent.bookingProposition}</Text>
         {agent.rating && (
           <Text style={styles.ratingText}>
             ⭐ {agent.rating.value.toFixed(1)} ({agent.rating.count} reviews)
           </Text>
         )}
+        <Text style={styles.updateStatus}>
+          Updated {agent.quoteAge}m ago
+        </Text>
       </View>
       
       <View style={styles.agentFooter}>
         <Text style={styles.carrierBadge}>
-          {agent.isCarrier ? 'Direct from airline' : 'Travel agency'}
+          {agent.isCarrier ? '✈️ Direct from airline' : '🏢 Travel agency'}
         </Text>
         <Text style={styles.bookNowText}>Tap to book →</Text>
       </View>
@@ -188,16 +323,31 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
     );
   }
 
+  if (!detailsData) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>No flight details available</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         {onBack && (
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backText}>← Back</Text>
+            <Text style={styles.backText}>← Back to Results</Text>
           </TouchableOpacity>
         )}
         <Text style={styles.headerTitle}>Flight Details</Text>
         <Text style={styles.headerPrice}>{itinerary.price.formatted}</Text>
+        
+        {detailsData.itinerary.destinationImage && (
+          <Image 
+            source={{ uri: detailsData.itinerary.destinationImage }}
+            style={styles.destinationImage}
+          />
+        )}
       </View>
 
       <View style={styles.policySection}>
@@ -209,39 +359,31 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
               styles.policyValue,
               { color: itinerary.farePolicy.isChangeAllowed ? '#10B981' : '#EF4444' }
             ]}>
-              {itinerary.farePolicy.isChangeAllowed ? 'Allowed' : 'Not allowed'}
+              {itinerary.farePolicy.isChangeAllowed ? '✓ Allowed' : '✗ Not allowed'}
             </Text>
           </View>
           <View style={styles.policyItem}>
-            <Text style={styles.policyLabel}>Cancellation:</Text>
+            <Text style={styles.policyLabel}>Refunds:</Text>
             <Text style={[
               styles.policyValue,
               { color: itinerary.farePolicy.isCancellationAllowed ? '#10B981' : '#EF4444' }
             ]}>
-              {itinerary.farePolicy.isCancellationAllowed ? 'Refundable' : 'Non-refundable'}
+              {itinerary.farePolicy.isCancellationAllowed ? '✓ Refundable' : '✗ Non-refundable'}
             </Text>
           </View>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Flight Information</Text>
-        {itinerary.legs.map((leg, index) => (
-          <View key={leg.id}>
-            {index > 0 && <View style={styles.legSeparator} />}
-            <Text style={styles.legLabel}>
-              {index === 0 ? 'Outbound Flight' : 'Return Flight'}
-            </Text>
-            {renderSegmentDetails(leg)}
-          </View>
-        ))}
+        <Text style={styles.sectionTitle}>Flight Itinerary</Text>
+        {detailsData.itinerary.legs.map((leg, index) => renderLegDetails(leg, index))}
       </View>
 
-      {detailsData?.itinerary?.pricingOptions && detailsData.itinerary.pricingOptions.length > 0 && (
+      {detailsData.itinerary.pricingOptions && detailsData.itinerary.pricingOptions.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Booking Options</Text>
           <Text style={styles.sectionSubtitle}>
-            Choose from {detailsData.itinerary.pricingOptions[0]?.agents?.length || 0} available options
+            {detailsData.itinerary.pricingOptions[0]?.agents?.length || 0} booking options available
           </Text>
           {detailsData.itinerary.pricingOptions[0]?.agents
             ?.sort((a, b) => a.price - b.price)
@@ -249,7 +391,7 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
         </View>
       )}
 
-      {detailsData?.itinerary?.operatingCarrierSafetyAttributes && 
+      {detailsData.itinerary.operatingCarrierSafetyAttributes && 
        detailsData.itinerary.operatingCarrierSafetyAttributes.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Safety Information</Text>
@@ -259,22 +401,40 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
               <View style={styles.safetyItems}>
                 {safety.faceMasksCompulsory !== null && (
                   <Text style={styles.safetyItem}>
-                    Face masks: {safety.faceMasksCompulsory ? '✓ Required' : '✗ Not required'}
+                    Face masks: {safety.faceMasksCompulsory ? '✓ Required' : '○ Not required'}
                   </Text>
                 )}
                 {safety.aircraftDeepCleanedDaily !== null && (
                   <Text style={styles.safetyItem}>
-                    Daily cleaning: {safety.aircraftDeepCleanedDaily ? '✓ Yes' : '✗ No'}
+                    Daily deep cleaning: {safety.aircraftDeepCleanedDaily ? '✓ Yes' : '○ No'}
                   </Text>
                 )}
                 {safety.attendantsWearPPE !== null && (
                   <Text style={styles.safetyItem}>
-                    Crew PPE: {safety.attendantsWearPPE ? '✓ Yes' : '✗ No'}
+                    Crew protective equipment: {safety.attendantsWearPPE ? '✓ Yes' : '○ No'}
+                  </Text>
+                )}
+                {safety.cleaningPacksProvided !== null && (
+                  <Text style={styles.safetyItem}>
+                    Cleaning packs provided: {safety.cleaningPacksProvided ? '✓ Yes' : '○ No'}
                   </Text>
                 )}
               </View>
+              {safety.safetyUrl && (
+                <TouchableOpacity onPress={() => Linking.openURL(safety.safetyUrl!)}>
+                  <Text style={styles.safetyUrl}>View safety details →</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
+        </View>
+      )}
+
+      {detailsData.itinerary.isTransferRequired && (
+        <View style={styles.transferWarning}>
+          <Text style={styles.transferText}>
+            ⚠️ Self-transfer required - You may need to collect and re-check baggage
+          </Text>
         </View>
       )}
     </ScrollView>
@@ -345,6 +505,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: '#2563EB',
+    marginBottom: 16,
+  },
+  destinationImage: {
+    width: '100%',
+    height: 120,
+    borderRadius: 8,
+    marginTop: 8,
   },
   section: {
     backgroundColor: '#FFFFFF',
@@ -383,35 +550,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  legLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
-  },
-  legSeparator: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 20,
-  },
-  segmentContainer: {
-    borderRadius: 12,
+  legContainer: {
+    marginBottom: 24,
     backgroundColor: '#F9FAFB',
+    borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
   },
-  segmentHeader: {
+  legHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  segmentTitle: {
+  legTitle: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#374151',
   },
-  segmentDuration: {
+  legDuration: {
     fontSize: 14,
     color: '#6B7280',
     backgroundColor: '#FFFFFF',
@@ -419,17 +575,38 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  routeContainer: {
+  routeSummary: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  routeText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  stopsText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  segmentContainer: {
+    marginBottom: 16,
+  },
+  flightInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   airportSection: {
     flex: 1,
     alignItems: 'center',
   },
   airportCode: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1F2937',
   },
@@ -439,58 +616,76 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   timeText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: '#374151',
-    marginTop: 8,
+    marginTop: 6,
   },
   dateText: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#9CA3AF',
+    marginTop: 2,
+  },
+  dayChangeText: {
+    fontSize: 10,
+    color: '#EF4444',
+    fontWeight: '500',
     marginTop: 2,
   },
   flightPath: {
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
-  flightLine: {
-    width: 80,
-    height: 2,
-    backgroundColor: '#D1D5DB',
+  carrierInfo: {
+    alignItems: 'center',
     marginBottom: 8,
   },
-  stopsText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
-  carrierSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  carrierLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginRight: 8,
-  },
-  carrierText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  segmentsList: {
-    marginTop: 8,
-  },
-  segmentsTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
+  airlineLogo: {
+    width: 24,
+    height: 24,
     marginBottom: 4,
   },
   flightNumber: {
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  durationText: {
+    fontSize: 10,
     color: '#6B7280',
-    fontFamily: 'monospace',
+    marginBottom: 4,
+  },
+  flightLine: {
+    width: 60,
+    height: 2,
+    backgroundColor: '#D1D5DB',
+  },
+  carrierDetails: {
+    alignItems: 'center',
+  },
+  carrierName: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  operatedBy: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  layover: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  layoverText: {
+    fontSize: 12,
+    color: '#6B7280',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   agentCard: {
     backgroundColor: '#FFFFFF',
@@ -540,14 +735,14 @@ const styles = StyleSheet.create({
   agentInfo: {
     marginBottom: 12,
   },
-  bookingText: {
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 4,
-  },
   ratingText: {
     fontSize: 12,
     color: '#6B7280',
+    marginBottom: 2,
+  },
+  updateStatus: {
+    fontSize: 10,
+    color: '#9CA3AF',
   },
   agentFooter: {
     flexDirection: 'row',
@@ -555,7 +750,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   carrierBadge: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#6B7280',
     backgroundColor: '#F3F4F6',
     paddingHorizontal: 8,
@@ -585,6 +780,24 @@ const styles = StyleSheet.create({
   safetyItem: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  safetyUrl: {
+    fontSize: 12,
+    color: '#2563EB',
+    marginTop: 8,
+  },
+  transferWarning: {
+    backgroundColor: '#FEF3C7',
+    margin: 12,
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+  transferText: {
+    fontSize: 14,
+    color: '#92400E',
+    fontWeight: '500',
   },
 });
 

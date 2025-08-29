@@ -4,10 +4,8 @@ import {
   Airport,
   FlightSearchResponse,
   FlightDetailsResponse,
-  PriceCalendarResponse,
   FlightSearchParams,
   AirportSearchParams,
-  PriceCalendarParams,
 } from './types';
 
 const API_BASE_URL = 'https://sky-scrapper.p.rapidapi.com/api';
@@ -20,8 +18,6 @@ if (!RAPIDAPI_KEY) {
   throw new Error('EXPO_PUBLIC_RAPIDAPI_KEY is not defined in environment variables. Please check your .env file and ensure the variable name starts with EXPO_PUBLIC_.');
 }
 
-// Log API key status (first few characters only for security)
-console.log('API Key loaded:', RAPIDAPI_KEY ? `${RAPIDAPI_KEY.substring(0, 8)}...` : 'Not found');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -172,28 +168,6 @@ export const flightAPI = {
     }
   },
 
-  // Get price calendar
-  getPriceCalendar: async (params: PriceCalendarParams): Promise<PriceCalendarResponse> => {
-    try {
-      const response: AxiosResponse<ApiResponse<PriceCalendarResponse>> = await api.get('/v1/flights/getPriceCalendar', {
-        params: {
-          originSkyId: params.originSkyId,
-          destinationSkyId: params.destinationSkyId,
-          fromDate: params.fromDate,
-          currency: params.currency || 'USD',
-        },
-      });
-      
-      if (!response.data.status) {
-        throw new Error('Failed to get price calendar');
-      }
-      
-      return response.data.data;
-    } catch (error) {
-      console.error('Error getting price calendar:', error);
-      throw error;
-    }
-  },
 };
 
 export default flightAPI;
