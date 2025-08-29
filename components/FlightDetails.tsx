@@ -30,15 +30,6 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
     });
   };
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
   const formatShortDate = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
@@ -53,7 +44,7 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
         "Booking",
         "Please visit the airline or travel website to complete your booking."
       );
-    } catch (error) {
+    } catch {
       Alert.alert("Error", "Failed to open booking link");
     }
   };
