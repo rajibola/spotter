@@ -12,9 +12,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import AirportPicker from "../components/AirportPicker";
 import FlightResults from "../components/FlightResults";
+import { useAuth } from "../context/AuthContext";
 import { useFlightSearch } from "../hooks/useFlightSearch";
 import { Airport, Itinerary } from "../services/types";
-import { useAuth } from "../context/AuthContext";
 
 export default function SearchScreen() {
   const {
@@ -57,10 +57,6 @@ export default function SearchScreen() {
       return;
     }
 
-    console.log("Starting flight search...");
-    console.log("Origin Airport:", originAirport);
-    console.log("Destination Airport:", destinationAirport);
-
     try {
       const searchParams = {
         originSkyId: originAirport!.skyId,
@@ -74,8 +70,6 @@ export default function SearchScreen() {
         market: "en-US",
         countryCode: "QA",
       };
-
-      console.log("Search params:", searchParams);
 
       await searchFlights(searchParams);
     } catch (error) {
@@ -116,29 +110,25 @@ export default function SearchScreen() {
   };
 
   // Handle logout
-  const handleLogout = async (): void => {
-    Alert.alert(
-      "Logout",
-      "Are you sure you want to logout?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
+  const handleLogout = async (): Promise<void> => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await logout();
+          } catch (error) {
+            console.error("Logout error:", error);
+            Alert.alert("Error", "Failed to logout. Please try again.");
+          }
         },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await logout();
-            } catch (error) {
-              console.error("Logout error:", error);
-              Alert.alert("Error", "Failed to logout. Please try again.");
-            }
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   // Show results if we have them
@@ -182,8 +172,15 @@ export default function SearchScreen() {
         <View style={styles.contentContainer}>
           <View style={styles.headerContainer}>
             <View style={styles.headerTop}>
-              <View style={styles.welcomeContainer}>
-                <Text style={styles.welcomeText}>Welcome{user?.name ? `, ${user.name}` : ''}!</Text>
+              <View style={styles.userProfileSection}>
+                <View style={styles.userInfo}>
+                  <Text style={styles.greetingText}>Good day!</Text>
+                  <Text style={styles.userNameText}>
+                    {user?.firstName
+                      ? `${user.firstName} ${user.lastName || ""}`.trim()
+                      : "User"}
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity
                 style={styles.logoutButtonMain}
@@ -193,10 +190,12 @@ export default function SearchScreen() {
                 <Text style={styles.logoutButtonMainText}>Logout</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.title}>Find Your Perfect Flight</Text>
-            <Text style={styles.subtitle}>
-              Search and compare flights from thousands of airlines
-            </Text>
+            <View style={styles.titleSection}>
+              <Text style={styles.title}>Find Your Perfect Flight</Text>
+              <Text style={styles.subtitle}>
+                Search and compare flights from thousands of airlines worldwide
+              </Text>
+            </View>
           </View>
 
           <View style={styles.searchContainer}>
@@ -307,22 +306,36 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     marginBottom: 32,
-    alignItems: "center",
   },
   headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     width: "100%",
-    marginBottom: 16,
+    marginBottom: 24,
   },
-  welcomeContainer: {
+  userProfileSection: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
-  welcomeText: {
-    fontSize: 16,
+  userInfo: {
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 14,
     color: "#6B7280",
-    fontWeight: "500",
+    fontWeight: "400",
+    marginBottom: 2,
+  },
+  userNameText: {
+    fontSize: 18,
+    color: "#1F2937",
+    fontWeight: "600",
+  },
+  titleSection: {
+    alignItems: "center",
+    paddingHorizontal: 8,
   },
   logoutButtonMain: {
     backgroundColor: "#EF4444",
@@ -336,17 +349,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: 32,
+    fontWeight: "700",
     color: "#1F2937",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
     color: "#6B7280",
     textAlign: "center",
     lineHeight: 24,
+    maxWidth: 320,
+    fontWeight: "400",
   },
   searchContainer: {
     backgroundColor: "#FFFFFF",

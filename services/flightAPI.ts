@@ -11,7 +11,6 @@ const API_BASE_URL = "https://sky-scrapper.p.rapidapi.com/api";
 
 // Get API key from Expo environment variables
 const RAPIDAPI_KEY = process.env.EXPO_PUBLIC_RAPIDAPI_KEY;
-console.log("Using RAPIDAPI_KEY:", RAPIDAPI_KEY);
 
 // Validate API key is available
 if (!RAPIDAPI_KEY) {
@@ -31,7 +30,6 @@ const api = axios.create({
 // Add request interceptor for logging
 api.interceptors.request.use(
   (config) => {
-    console.log(`Making API request to: ${config.url}`);
     return config;
   },
   (error) => {
@@ -43,7 +41,6 @@ api.interceptors.request.use(
 // Add response interceptor for error handling
 api.interceptors.response.use(
   (response) => {
-    console.log("API response success:", response.status, response.config.url);
     return response;
   },
   (error) => {
@@ -123,22 +120,10 @@ export const flightAPI = {
         countryCode: params.countryCode || "US",
       };
 
-      console.log("Searching flights with params:", requestParams);
-
       const response: AxiosResponse<ApiResponse<FlightSearchResponse>> =
         await api.get("/v2/flights/searchFlights", {
           params: requestParams,
         });
-
-      console.log("Flight search response status:", response.data.status);
-      console.log(
-        "Flight search response data keys:",
-        Object.keys(response.data.data || {})
-      );
-      console.log(
-        "Full response data:",
-        JSON.stringify(response.data, null, 2)
-      );
 
       if (!response.data.status) {
         throw new Error(
