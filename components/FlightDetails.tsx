@@ -10,140 +10,15 @@ import {
   Linking,
   Image,
 } from 'react-native';
-import { Itinerary, FlightDetailsResponse } from '../services/types';
-import { flightAPI } from '../services/flightAPI';
+import { Itinerary } from '../services/types';
 
 interface FlightDetailsProps {
   itinerary: Itinerary;
   onBack?: () => void;
 }
 
-interface DetailedLeg {
-  id: string;
-  origin: {
-    id: string;
-    name: string;
-    displayCode: string;
-    city: string;
-  };
-  destination: {
-    id: string;
-    name: string;
-    displayCode: string;
-    city: string;
-  };
-  segments: DetailedSegment[];
-  duration: number;
-  stopCount: number;
-  departure: string;
-  arrival: string;
-  dayChange: number;
-}
-
-interface DetailedSegment {
-  id: string;
-  origin: {
-    id: string;
-    name: string;
-    displayCode: string;
-    city: string;
-  };
-  destination: {
-    id: string;
-    name: string;
-    displayCode: string;
-    city: string;
-  };
-  duration: number;
-  dayChange: number;
-  flightNumber: string;
-  departure: string;
-  arrival: string;
-  marketingCarrier: {
-    id: string;
-    name: string;
-    displayCode: string;
-    displayCodeType: string;
-    logo: string;
-    altId: string;
-  };
-  operatingCarrier: {
-    id: string;
-    name: string;
-    displayCode: string;
-    displayCodeType: string;
-    logo: string;
-    altId: string;
-  };
-}
-
-interface DetailedAgent {
-  id: string;
-  name: string;
-  isCarrier: boolean;
-  bookingProposition: string;
-  url: string;
-  price: number;
-  rating: {
-    value: number;
-    count: number;
-  };
-  updateStatus: string;
-  segments: DetailedSegment[];
-  isDirectDBookUrl: boolean;
-  quoteAge: number;
-}
-
-interface DetailedItinerary {
-  legs: DetailedLeg[];
-  pricingOptions: {
-    agents: DetailedAgent[];
-    totalPrice: number;
-  }[];
-  isTransferRequired: boolean;
-  destinationImage: string;
-  operatingCarrierSafetyAttributes: {
-    carrierID: string;
-    carrierName: string;
-    faceMasksCompulsory: boolean | null;
-    aircraftDeepCleanedDaily: boolean | null;
-    attendantsWearPPE: boolean | null;
-    cleaningPacksProvided: boolean | null;
-    foodServiceChanges: boolean | null;
-    safetyUrl: string | null;
-  }[];
-  flexibleTicketPolicies: any[];
-}
 
 const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
-  const [detailsData, setDetailsData] = useState<{ itinerary: DetailedItinerary; pollingCompleted: boolean } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetchFlightDetails();
-  }, [itinerary]);
-
-  const fetchFlightDetails = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      const legs = itinerary.legs.map(leg => ({
-        destination: leg.destination.id,
-        origin: leg.origin.id,
-        date: leg.departure.split('T')[0],
-      }));
-
-      const details = await flightAPI.getFlightDetails(legs);
-      setDetailsData(details as any);
-    } catch (err) {
-      console.error('Error fetching flight details:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load flight details');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const formatDuration = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
@@ -176,52 +51,39 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
     });
   };
 
-  const handleBookingPress = async (agent: DetailedAgent) => {
+  const handleBookingPress = async () => {
     try {
-      const supported = await Linking.canOpenURL(agent.url);
-      if (supported) {
-        await Linking.openURL(agent.url);
-      } else {
-        Alert.alert('Error', 'Cannot open booking URL');
-      }
+      Alert.alert('Booking', 'Please visit the airline or travel website to complete your booking.');
     } catch (error) {
       Alert.alert('Error', 'Failed to open booking link');
     }
   };
 
-  const renderSegmentDetails = (segment: DetailedSegment, isLast: boolean) => (
+  const renderSegmentDetails = (segment: any, isLast: boolean) => (
     <View style={styles.segmentContainer} key={segment.id}>
       <View style={styles.flightInfo}>
         <View style={styles.airportSection}>
           <Text style={styles.airportCode}>{segment.origin.displayCode}</Text>
-          <Text style={styles.cityName}>{segment.origin.city}</Text>
+          <Text style={styles.cityName}>{segment.origin.parent?.name || segment.origin.name}</Text>
           <Text style={styles.timeText}>{formatTime(segment.departure)}</Text>
           <Text style={styles.dateText}>{formatShortDate(segment.departure)}</Text>
         </View>
         
         <View style={styles.flightPath}>
           <View style={styles.carrierInfo}>
-            <Image 
-              source={{ uri: segment.marketingCarrier.logo }}
-              style={styles.airlineLogo}
-              onError={() => {}}
-            />
             <Text style={styles.flightNumber}>
               {segment.marketingCarrier.displayCode} {segment.flightNumber}
             </Text>
           </View>
-          <Text style={styles.durationText}>{formatDuration(segment.duration)}</Text>
+          <Text style={styles.durationText}>{formatDuration(segment.durationInMinutes)}</Text>
           <View style={styles.flightLine} />
         </View>
         
         <View style={styles.airportSection}>
           <Text style={styles.airportCode}>{segment.destination.displayCode}</Text>
-          <Text style={styles.cityName}>{segment.destination.city}</Text>
+          <Text style={styles.cityName}>{segment.destination.parent?.name || segment.destination.name}</Text>
           <Text style={styles.timeText}>{formatTime(segment.arrival)}</Text>
           <Text style={styles.dateText}>{formatShortDate(segment.arrival)}</Text>
-          {segment.dayChange > 0 && (
-            <Text style={styles.dayChangeText}>+{segment.dayChange} day</Text>
-          )}
         </View>
       </View>
       
@@ -242,13 +104,13 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
     </View>
   );
 
-  const renderLegDetails = (leg: DetailedLeg, legIndex: number) => (
+  const renderLegDetails = (leg: any, legIndex: number) => (
     <View style={styles.legContainer} key={leg.id}>
       <View style={styles.legHeader}>
         <Text style={styles.legTitle}>
           {legIndex === 0 ? 'Outbound Flight' : 'Return Flight'}
         </Text>
-        <Text style={styles.legDuration}>{formatDuration(leg.duration)}</Text>
+        <Text style={styles.legDuration}>{formatDuration(leg.durationInMinutes)}</Text>
       </View>
       
       <View style={styles.routeSummary}>
@@ -260,70 +122,42 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
         </Text>
       </View>
       
-      {leg.segments.map((segment, index) => 
+      {leg.segments.map((segment: any, index: number) => 
         renderSegmentDetails(segment, index === leg.segments.length - 1)
       )}
     </View>
   );
 
-  const renderPricingOption = (agent: DetailedAgent, index: number) => (
+  const renderBookingOption = () => (
     <TouchableOpacity
-      key={agent.id}
-      style={[styles.agentCard, index === 0 && styles.bestDealCard]}
-      onPress={() => handleBookingPress(agent)}
+      style={[styles.agentCard, styles.bestDealCard]}
+      onPress={handleBookingPress}
     >
-      {index === 0 && (
-        <View style={styles.bestDealBadge}>
-          <Text style={styles.bestDealText}>Best Price</Text>
-        </View>
-      )}
+      <View style={styles.bestDealBadge}>
+        <Text style={styles.bestDealText}>Best Price</Text>
+      </View>
       
       <View style={styles.agentHeader}>
-        <Text style={styles.agentName}>{agent.name}</Text>
-        <Text style={styles.agentPrice}>${agent.price}</Text>
+        <Text style={styles.agentName}>Booking Available</Text>
+        <Text style={styles.agentPrice}>{itinerary.price.formatted}</Text>
       </View>
       
       <View style={styles.agentInfo}>
-        {agent.rating && (
-          <Text style={styles.ratingText}>
-            ⭐ {agent.rating.value.toFixed(1)} ({agent.rating.count} reviews)
-          </Text>
-        )}
         <Text style={styles.updateStatus}>
-          Updated {agent.quoteAge}m ago
+          Price from search results
         </Text>
       </View>
       
       <View style={styles.agentFooter}>
         <Text style={styles.carrierBadge}>
-          {agent.isCarrier ? '✈️ Direct from airline' : '🏢 Travel agency'}
+          🏢 Multiple booking options available
         </Text>
         <Text style={styles.bookNowText}>Tap to book →</Text>
       </View>
     </TouchableOpacity>
   );
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563EB" />
-        <Text style={styles.loadingText}>Loading flight details...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Error: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchFlightDetails}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (!detailsData) {
+  if (!itinerary) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>No flight details available</Text>
@@ -341,13 +175,6 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
         )}
         <Text style={styles.headerTitle}>Flight Details</Text>
         <Text style={styles.headerPrice}>{itinerary.price.formatted}</Text>
-        
-        {detailsData.itinerary.destinationImage && (
-          <Image 
-            source={{ uri: detailsData.itinerary.destinationImage }}
-            style={styles.destinationImage}
-          />
-        )}
       </View>
 
       <View style={styles.policySection}>
@@ -376,61 +203,18 @@ const FlightDetails: React.FC<FlightDetailsProps> = ({ itinerary, onBack }) => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Flight Itinerary</Text>
-        {detailsData.itinerary.legs.map((leg, index) => renderLegDetails(leg, index))}
+        {itinerary.legs.map((leg, index) => renderLegDetails(leg, index))}
       </View>
 
-      {detailsData.itinerary.pricingOptions && detailsData.itinerary.pricingOptions.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Booking Options</Text>
-          <Text style={styles.sectionSubtitle}>
-            {detailsData.itinerary.pricingOptions[0]?.agents?.length || 0} booking options available
-          </Text>
-          {detailsData.itinerary.pricingOptions[0]?.agents
-            ?.sort((a, b) => a.price - b.price)
-            ?.map((agent, index) => renderPricingOption(agent, index))}
-        </View>
-      )}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Booking Options</Text>
+        <Text style={styles.sectionSubtitle}>
+          Booking available from search results
+        </Text>
+        {renderBookingOption()}
+      </View>
 
-      {detailsData.itinerary.operatingCarrierSafetyAttributes && 
-       detailsData.itinerary.operatingCarrierSafetyAttributes.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Safety Information</Text>
-          {detailsData.itinerary.operatingCarrierSafetyAttributes.map((safety, index) => (
-            <View key={index} style={styles.safetyCard}>
-              <Text style={styles.safetyCarrier}>{safety.carrierName}</Text>
-              <View style={styles.safetyItems}>
-                {safety.faceMasksCompulsory !== null && (
-                  <Text style={styles.safetyItem}>
-                    Face masks: {safety.faceMasksCompulsory ? '✓ Required' : '○ Not required'}
-                  </Text>
-                )}
-                {safety.aircraftDeepCleanedDaily !== null && (
-                  <Text style={styles.safetyItem}>
-                    Daily deep cleaning: {safety.aircraftDeepCleanedDaily ? '✓ Yes' : '○ No'}
-                  </Text>
-                )}
-                {safety.attendantsWearPPE !== null && (
-                  <Text style={styles.safetyItem}>
-                    Crew protective equipment: {safety.attendantsWearPPE ? '✓ Yes' : '○ No'}
-                  </Text>
-                )}
-                {safety.cleaningPacksProvided !== null && (
-                  <Text style={styles.safetyItem}>
-                    Cleaning packs provided: {safety.cleaningPacksProvided ? '✓ Yes' : '○ No'}
-                  </Text>
-                )}
-              </View>
-              {safety.safetyUrl && (
-                <TouchableOpacity onPress={() => Linking.openURL(safety.safetyUrl!)}>
-                  <Text style={styles.safetyUrl}>View safety details →</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ))}
-        </View>
-      )}
-
-      {detailsData.itinerary.isTransferRequired && (
+      {itinerary.isSelfTransfer && (
         <View style={styles.transferWarning}>
           <Text style={styles.transferText}>
             ⚠️ Self-transfer required - You may need to collect and re-check baggage
