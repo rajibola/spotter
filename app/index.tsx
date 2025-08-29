@@ -10,10 +10,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AirportPicker from "../../components/AirportPicker";
-import FlightResults from "../../components/FlightResults";
-import { useFlightSearch } from "../../hooks/useFlightSearch";
-import { Airport, Itinerary } from "../../services/types";
+import AirportPicker from "../components/AirportPicker";
+import FlightResults from "../components/FlightResults";
+import { useFlightSearch } from "../hooks/useFlightSearch";
+import { Airport, Itinerary } from "../services/types";
+import { useAuth } from "../context/AuthContext";
 
 export default function SearchScreen() {
   const {
@@ -23,6 +24,7 @@ export default function SearchScreen() {
     flightResults,
     clearFlightResults,
   } = useFlightSearch();
+  const { logout, user } = useAuth();
 
   const [originAirport, setOriginAirport] = useState<Airport | null>(null);
   const [destinationAirport, setDestinationAirport] = useState<Airport | null>(
@@ -113,6 +115,32 @@ export default function SearchScreen() {
     clearFlightResults();
   };
 
+  // Handle logout
+  const handleLogout = async (): void => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              console.error("Logout error:", error);
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Show results if we have them
   if (flightResults || isLoadingFlights) {
     return (
@@ -126,7 +154,13 @@ export default function SearchScreen() {
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.resultsHeaderTitle}>Flight Results</Text>
-          <View style={styles.headerPlaceholder} />
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.logoutButtonText}>Logout</Text>
+          </TouchableOpacity>
         </View>
 
         <FlightResults
@@ -147,6 +181,18 @@ export default function SearchScreen() {
       >
         <View style={styles.contentContainer}>
           <View style={styles.headerContainer}>
+            <View style={styles.headerTop}>
+              <View style={styles.welcomeContainer}>
+                <Text style={styles.welcomeText}>Welcome{user?.name ? `, ${user.name}` : ''}!</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.logoutButtonMain}
+                onPress={handleLogout}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.logoutButtonMainText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={styles.title}>Find Your Perfect Flight</Text>
             <Text style={styles.subtitle}>
               Search and compare flights from thousands of airlines
@@ -262,6 +308,32 @@ const styles = StyleSheet.create({
   headerContainer: {
     marginBottom: 32,
     alignItems: "center",
+  },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 16,
+  },
+  welcomeContainer: {
+    flex: 1,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  logoutButtonMain: {
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  logoutButtonMainText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   title: {
     fontSize: 28,
@@ -420,5 +492,16 @@ const styles = StyleSheet.create({
   },
   headerPlaceholder: {
     width: 80,
+  },
+  logoutButton: {
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  logoutButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
