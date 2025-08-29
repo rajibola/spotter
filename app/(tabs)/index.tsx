@@ -1,75 +1,465 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import AirportPicker from '../../components/AirportPicker';
+import FlightResults from '../../components/FlightResults';
+import { useFlightSearch } from '../../hooks/useFlightSearch';
+import { Airport, Itinerary } from '../../services/types';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+export default function SearchScreen() {
+  const { 
+    searchFlights, 
+    isLoadingFlights, 
+    flightsError, 
+    flightResults,
+    searchAirports, 
+    isLoadingAirports,
+    clearFlightResults
+  } = useFlightSearch();
+  
+  const [originAirport, setOriginAirport] = useState<Airport | null>(null);
+  const [destinationAirport, setDestinationAirport] = useState<Airport | null>(null);
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+  // Validate search form
+  const validateSearch = (): boolean => {
+    if (!originAirport) {
+      Alert.alert('Error', 'Please select origin airport');
+      return false;
+    }
+    
+    if (!destinationAirport) {
+      Alert.alert('Error', 'Please select destination airport');
+      return false;
+    }
+    
+    if (originAirport.skyId === destinationAirport.skyId) {
+      Alert.alert('Error', 'Origin and destination cannot be the same');
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Handle search flights
+  const handleSearchFlights = async (): Promise<void> => {
+    if (!validateSearch()) {
+      return;
+    }
+
+    console.log('Starting flight search...');
+    console.log('Origin Airport:', originAirport);
+    console.log('Destination Airport:', destinationAirport);
+
+    try {
+      const searchParams = {
+        originSkyId: originAirport!.skyId,
+        destinationSkyId: destinationAirport!.skyId,
+        originEntityId: originAirport!.entityId,
+        destinationEntityId: destinationAirport!.entityId,
+        cabinClass: 'economy',
+        adults: '1',
+        sortBy: 'best',
+        currency: 'USD',
+        market: 'en-US',
+        countryCode: 'QA',
+      };
+      
+      console.log('Search params:', searchParams);
+      
+      await searchFlights(searchParams);
+    } catch (error) {
+      console.error('Flight search error:', error);
+    }
+  };
+
+  // Swap origin and destination
+  const swapAirports = (): void => {
+    const temp = originAirport;
+    setOriginAirport(destinationAirport);
+    setDestinationAirport(temp);
+  };
+
+  // Handle flight selection
+  const handleFlightSelect = (itinerary: Itinerary): void => {
+    Alert.alert(
+      'Flight Selected',
+      `Selected flight for ${itinerary.price.formatted}. Flight details screen will be implemented next.`,
+      [{ text: 'OK', style: 'default' }]
+    );
+  };
+
+  // Start new search
+  const startNewSearch = (): void => {
+    clearFlightResults();
+  };
+
+  // Test API connection
+  const testApiConnection = async (): Promise<void> => {
+    try {
+      console.log('Testing flight search with known working parameters...');
+      // Test with the exact same params as your curl sample
+      const testParams = {
+        originSkyId: 'LOND',
+        destinationSkyId: 'NYCA',
+        originEntityId: '27544008',
+        destinationEntityId: '27537542',
+        cabinClass: 'economy',
+        adults: '1',
+        sortBy: 'best',
+        currency: 'USD',
+        market: 'en-US',
+        countryCode: 'US',
+      };
+      
+      const results = await searchFlights(testParams);
+      const flightCount = results?.itineraries?.length || 0;
+      console.log('Test results structure:', {
+        hasContext: !!results?.context,
+        contextStatus: results?.context?.status,
+        totalResults: results?.context?.totalResults,
+        hasItineraries: !!results?.itineraries,
+        itinerariesLength: results?.itineraries?.length,
+        hasFilterStats: !!results?.filterStats,
+      });
+      
+      if (flightCount > 0) {
+        Alert.alert('API Test Success', `Found ${flightCount} flights with test parameters!`);
+      } else {
+        Alert.alert('API Working but No Flights', 
+          `API responded successfully but found 0 flights.\nContext status: ${results?.context?.status || 'unknown'}\nTotal results: ${results?.context?.totalResults || 0}`);
+      }
+    } catch (error) {
+      console.error('API test error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'API test failed';
+      Alert.alert('API Test Failed', errorMessage);
+    }
+  };
+
+  // Show results if we have them
+  if (flightResults || isLoadingFlights) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.resultsHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={startNewSearch}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.backButtonText}>← New Search</Text>
+          </TouchableOpacity>
+          <Text style={styles.resultsHeaderTitle}>Flight Results</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+        
+        <FlightResults
+          results={flightResults}
+          isLoading={isLoadingFlights}
+          error={flightsError}
+          onFlightSelect={handleFlightSelect}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <View style={styles.contentContainer}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.title}>Find Your Perfect Flight</Text>
+            <Text style={styles.subtitle}>
+              Search and compare flights from thousands of airlines
+            </Text>
+          </View>
+
+          <View style={styles.searchContainer}>
+            <View style={styles.airportContainer}>
+              <AirportPicker
+                label="From"
+                placeholder="Select origin airport"
+                selectedAirport={originAirport}
+                onAirportSelect={setOriginAirport}
+                style={styles.airportPicker}
+              />
+
+              <TouchableOpacity
+                style={styles.swapButton}
+                onPress={swapAirports}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.swapButtonText}>⇅</Text>
+              </TouchableOpacity>
+
+              <AirportPicker
+                label="To"
+                placeholder="Select destination airport"
+                selectedAirport={destinationAirport}
+                onAirportSelect={setDestinationAirport}
+                style={styles.airportPicker}
+              />
+            </View>
+
+
+            <TouchableOpacity
+              style={[
+                styles.searchButton,
+                isLoadingFlights && styles.searchButtonDisabled
+              ]}
+              onPress={handleSearchFlights}
+              disabled={isLoadingFlights}
+              activeOpacity={0.8}
+            >
+              {isLoadingFlights ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <Text style={styles.searchButtonText}>Searching...</Text>
+                </View>
+              ) : (
+                <Text style={styles.searchButtonText}>Search Flights</Text>
+              )}
+            </TouchableOpacity>
+
+            {flightsError && (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{flightsError}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.testButton}
+              onPress={testApiConnection}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.testButtonText}>Test API Connection</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.featuresContainer}>
+            <Text style={styles.featuresTitle}>Why Choose Our Flight Search?</Text>
+            <View style={styles.featuresList}>
+              <View style={styles.featureItem}>
+                <Text style={styles.featureIcon}>✈️</Text>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureTitle}>Comprehensive Search</Text>
+                  <Text style={styles.featureDescription}>
+                    Search across multiple airlines and booking sites
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.featureItem}>
+                <Text style={styles.featureIcon}>💰</Text>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureTitle}>Best Prices</Text>
+                  <Text style={styles.featureDescription}>
+                    Compare prices to find the best deals available
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.featureItem}>
+                <Text style={styles.featureIcon}>📅</Text>
+                <View style={styles.featureContent}>
+                  <Text style={styles.featureTitle}>Flexible Dates</Text>
+                  <Text style={styles.featureDescription}>
+                    View price calendar to find the cheapest travel dates
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
   },
-  stepContainer: {
-    gap: 8,
+  scrollContainer: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+  },
+  headerContainer: {
+    marginBottom: 32,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  subtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  searchContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 32,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  airportContainer: {
+    position: 'relative',
+    marginBottom: 24,
+  },
+  airportPicker: {
+    marginBottom: 8,
+  },
+  swapButton: {
     position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: [{ translateY: -15 }],
+    backgroundColor: '#2563EB',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  swapButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  searchButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  searchButtonDisabled: {
+    opacity: 0.6,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  errorContainer: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    padding: 12,
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  testButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  testButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  featuresContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  featuresTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  featuresList: {
+    gap: 16,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  featureIcon: {
+    fontSize: 24,
+    marginRight: 12,
+    marginTop: 2,
+  },
+  featureContent: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  featureDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  resultsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  backButton: {
+    padding: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#2563EB',
+    fontWeight: '500',
+  },
+  resultsHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  headerPlaceholder: {
+    width: 80,
   },
 });
