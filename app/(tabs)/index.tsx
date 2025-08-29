@@ -123,7 +123,7 @@ export default function SearchScreen() {
             onPress={startNewSearch}
             activeOpacity={0.7}
           >
-            <Text style={styles.backButtonText}>← New Search</Text>
+            <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.resultsHeaderTitle}>Flight Results</Text>
           <View style={styles.headerPlaceholder} />
