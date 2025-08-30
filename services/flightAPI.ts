@@ -143,7 +143,6 @@ export const flightAPI = {
       throw error;
     }
   },
-
 };
 
 export default flightAPI;
